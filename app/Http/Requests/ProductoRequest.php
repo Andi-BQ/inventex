@@ -1,56 +1,219 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Controllers;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use App\Http\Requests\ProductoRequest;
+use App\Models\Categoria;
+use App\Models\Proveedor;
+use App\Services\ProductoService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Inertia\Inertia;
 
-class ProductoRequest extends FormRequest
+class ProductoController extends Controller
 {
-    public function authorize(): bool
+    public function __construct(
+        private ProductoService $productoService
+    ) {}
+
+    public function index(Request $request): JsonResponse
     {
-        return true;
+        return $this->listar($request);
     }
 
-    public function rules(): array
+    private function getCategoriasActivas()
     {
-        // 💡 RECOLECCIÓN INTELIGENTE: Captura el parámetro tanto si se llama 'id' como 'producto'
-        $productoId = $this->route('id') ?? $this->route('producto');
-
-        return [
-            // Usamos Rule::unique de forma limpia y moderna para ignorar el ID actual si existe
-            'codigo' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('productos', 'codigo')->ignore($productoId),
-            ],
-            'nombre' => 'required|string|max:150',
-            'descripcion' => 'nullable|string|max:500',
-            'precio_compra' => 'required|numeric|min:0|max:9999999.99',
-            'precio_venta' => 'required|numeric|min:0|max:9999999.99',
-            'stock_actual' => 'sometimes|integer|min:0|max:999999',
-            'stock_minimo' => 'required|integer|min:0|max:999999',
-            'unidad_medida' => 'sometimes|string|max:30',
-            'imagen_url' => 'nullable|string|max:500',
-            'categoria_id' => 'nullable|integer|exists:categorias,id',
-            'proveedor_id' => 'nullable|integer|exists:proveedores,id',
-            'activo' => 'sometimes|boolean',
-        ];
+        return Cache::remember('categorias_activas', 300, function () {
+            return Categoria::where('activo', true)->orderBy('nombre')->get()->values()->all();
+        });
     }
 
-    public function messages(): array
+    private function getProveedoresActivos()
     {
-        return [
-            'codigo.required' => 'El código del producto es obligatorio.',
-            'codigo.unique' => 'Ya existe un producto con ese código.',
-            'nombre.required' => 'El nombre del producto es obligatorio.',
-            'precio_compra.required' => 'El precio de compra es obligatorio.',
-            'precio_venta.required' => 'El precio de venta es obligatorio.',
-            'precio_compra.min' => 'El precio de compra no puede ser negativo.',
-            'precio_venta.min' => 'El precio de venta no puede ser negativo.',
-            'categoria_id.exists' => 'La categoría seleccionada no existe.',
-            'proveedor_id.exists' => 'El proveedor seleccionado no existe.',
-        ];
+        return Cache::remember('proveedores_activos', 300, function () {
+            return Proveedor::where('activo', true)->orderBy('nombre')->get()->values()->all();
+        });
+    }
+
+    public function paginaIndex(Request $request)
+    {
+        $result = $this->productoService->listar($request->all());
+
+        return Inertia::render('Productos', [
+            'productos' => $result,
+            'categorias' => $this->getCategoriasActivas(),
+            'proveedores' => $this->getProveedoresActivos(),
+        ]);
+    }
+
+    public function paginaCrear()
+    {
+        return Inertia::render('Productos/Crear', [
+            'producto' => null,
+            'categorias' => $this->getCategoriasActivas(),
+            'proveedores' => $this->getProveedoresActivos(),
+        ]);
+    }
+
+    public function inertiaStore(ProductoRequest $request)
+    {
+        $this->productoService->create($request->validated());
+        Cache::forget('categorias_activas');
+        Cache::forget('proveedores_activos');
+
+        return redirect('/productos')->with('success', 'Producto creado correctamente.');
+    }
+
+    public function inertiaUpdate(ProductoRequest $request, int $id)
+    {
+        try {
+            $this->productoService->update($id, $request->validated());
+            Cache::forget('categorias_activas');
+            Cache::forget('proveedores_activos');
+
+            return redirect('/productos')->with('success', 'Producto actualizado correctamente.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return redirect('/productos')->with('error', 'Producto no encontrado.');
+        }
+    }
+
+    public function paginaEditar(int $id)
+    {
+        $producto = $this->productoService->getById($id);
+
+        if (!$producto) {
+            return redirect('/productos')->with('error', 'Producto no encontrado.');
+        }
+
+        return Inertia::render('Productos/Crear', [
+            'producto' => $producto,
+            'categorias' => $this->getCategoriasActivas(),
+            'proveedores' => $this->getProveedoresActivos(),
+        ]);
+    }
+
+    public function listar(Request $request): JsonResponse
+    {
+        $isEmpleado = $request->user()?->rol === 'empleado';
+
+        $result = $this->productoService->listar($request->all());
+
+        if ($isEmpleado) {
+            $result['data'] = array_map(function ($p) {
+                return [
+                    'id' => $p['id'],
+                    'codigo' => $p['codigo'],
+                    'nombre' => $p['nombre'],
+                    'descripcion' => $p['descripcion'],
+                    'stock_actual' => $p['stock_actual'],
+                    'stock_minimo' => $p['stock_minimo'],
+                    'unidad_medida' => $p['unidad_medida'],
+                    'imagen_url' => $p['imagen_url'],
+                    'categoria_id' => $p['categoria_id'],
+                    'categoria_nombre' => $p['categoria']['nombre'] ?? null,
+                    'categoria_color' => $p['categoria']['color'] ?? null,
+                    'categoria_icono' => $p['categoria']['icono'] ?? null,
+                    'activo' => $p['activo'],
+                ];
+            }, $result['data']);
+        }
+
+        return response()->json($result);
+    }
+
+    public function show(int $id): JsonResponse
+    {
+        $producto = $this->productoService->getById($id);
+
+        if (!$producto) {
+            return response()->json(['error' => 'Producto no encontrado.'], 404);
+        }
+
+        return response()->json(['data' => $producto]);
+    }
+
+    public function store(ProductoRequest $request): JsonResponse
+    {
+        $producto = $this->productoService->create($request->validated());
+
+        return response()->json([
+            'mensaje' => 'Producto creado correctamente.',
+            'data' => $producto,
+        ], 201);
+    }
+
+    public function update(ProductoRequest $request, int $id): JsonResponse
+    {
+        try {
+            $producto = $this->productoService->update($id, $request->validated());
+
+            return response()->json([
+                'mensaje' => 'Producto actualizado correctamente.',
+                'data' => $producto,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => 'Producto no encontrado.'], 404);
+        }
+    }
+
+    public function toggleActivo(int $id): JsonResponse
+    {
+        try {
+            $producto = $this->productoService->toggleActivo($id);
+
+            return response()->json([
+                'mensaje' => $producto->activo ? 'Producto activado correctamente.' : 'Producto desactivado correctamente.',
+                'data' => $producto,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => 'Producto no encontrado.'], 404);
+        }
+    }
+
+    public function autocomplete(Request $request): JsonResponse
+    {
+        $term = $request->get('q', '');
+        $data = $this->productoService->buscarAutocomplete($term);
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function inertiaDestroy(int $id)
+    {
+        try {
+            $producto = $this->productoService->getById($id);
+            if (!$producto) {
+                return redirect('/productos')->with('error', 'Producto no encontrado.');
+            }
+
+            // 💡 CORRECCIÓN: Si existen movimientos, los borramos primero para evitar restricciones de clave foránea
+            if ($producto->movimientos()->exists()) {
+                $producto->movimientos()->delete();
+            }
+
+            $producto->delete();
+            
+            Cache::forget('categorias_activas');
+            Cache::forget('proveedores_activos');
+            
+            return redirect('/productos')->with('success', 'Producto eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect('/productos')->with('error', 'Error al eliminar el producto: ' . $e->getMessage());
+        }
+    }
+
+    public function bajoStock(): JsonResponse
+    {
+        $data = $this->productoService->getBajoStock();
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function valorInventario(): JsonResponse
+    {
+        $data = $this->productoService->getValorInventario();
+
+        return response()->json(['data' => $data]);
     }
 }
