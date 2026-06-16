@@ -86,6 +86,9 @@
         },
         "ignore-platform-reqs": {
             "ext-gd": true
+        },
+        "platform": {
+            "ext-gd": "8.2"
         }
     },
     "minimum-stability": "stable",
