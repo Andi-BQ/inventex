@@ -14,8 +14,24 @@ class ConfiguracionController extends Controller
     {
         $user = $request->user();
         
-        // Obtenemos los valores mapeados de la tabla configuraciones
-        $configs = Configuracion::pluck('valor', 'clave')->toArray();
+        // 1. Intentamos obtener de forma segura las configuraciones de la tabla
+        $configs = [];
+        try {
+            $configs = Configuracion::pluck('valor', 'clave')->toArray();
+        } catch (\Exception $e) {
+            // Previene fallos si la tabla física aún no existe en producción
+            $configs = [];
+        }
+
+        // 2. Valores por defecto (Fallback) indispensables para que React no rompa si la BD está vacía
+        $defaultConfigs = [
+            'nombre_sistema' => 'Inventex',
+            'moneda_simbolo' => '$',
+            'limite_stock_critico' => '5',
+        ];
+
+        // Combinamos manteniendo las prioridades de la base de datos si ya tiene registros
+        $configs = array_merge($defaultConfigs, $configs);
 
         return Inertia::render('Configuracion', [
             'configs' => $configs,
