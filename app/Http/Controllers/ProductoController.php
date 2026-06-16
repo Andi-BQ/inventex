@@ -25,14 +25,16 @@ class ProductoController extends Controller
     private function getCategoriasActivas()
     {
         return Cache::remember('categorias_activas', 300, function () {
-            return Categoria::where('activo', true)->orderBy('nombre')->get();
+            // Forzamos un arreglo puro indexado con ->values()->all() para asegurar el .map() en React
+            return Categoria::where('activo', true)->orderBy('nombre')->get()->values()->all();
         });
     }
 
     private function getProveedoresActivos()
     {
         return Cache::remember('proveedores_activos', 300, function () {
-            return Proveedor::where('activo', true)->orderBy('nombre')->get();
+            // Forzamos un arreglo puro indexado con ->values()->all() para asegurar el .map() en React
+            return Proveedor::where('activo', true)->orderBy('nombre')->get()->values()->all();
         });
     }
 
@@ -187,8 +189,6 @@ class ProductoController extends Controller
                 return redirect('/productos')->with('error', 'Producto no encontrado.');
             }
 
-            // Verificar si existen movimientos de inventario asociados antes de eliminar.
-            // Esto protege la trazabilidad contable y financiera del producto.
             if ($producto->movimientos()->exists()) {
                 $total = $producto->movimientos()->count();
                 return redirect('/productos')->with(
