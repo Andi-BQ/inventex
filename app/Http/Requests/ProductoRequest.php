@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ProductoRequest extends FormRequest
 {
@@ -13,10 +14,17 @@ class ProductoRequest extends FormRequest
 
     public function rules(): array
     {
-        $productoId = $this->route('producto');
+        // 💡 RECOLECCIÓN INTELIGENTE: Captura el parámetro tanto si se llama 'id' como 'producto'
+        $productoId = $this->route('id') ?? $this->route('producto');
 
         return [
-            'codigo' => "required|string|max:50|unique:productos,codigo,{$productoId}",
+            // Usamos Rule::unique de forma limpia y moderna para ignorar el ID actual si existe
+            'codigo' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('productos', 'codigo')->ignore($productoId),
+            ],
             'nombre' => 'required|string|max:150',
             'descripcion' => 'nullable|string|max:500',
             'precio_compra' => 'required|numeric|min:0|max:9999999.99',
