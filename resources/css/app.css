@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-hm-50: #f8fafc;
+    --color-hm-100: #f1f5f9;
+    --color-hm-200: #e2e8f0;
+    --color-hm-300: #cbd5e1;
+    --color-hm-400: #94a3b8;
+    --color-hm-500: #64748b;
+    --color-hm-600: #475569;
+    --color-hm-700: #334155;
+    --color-hm-800: #1e293b;
+    --color-hm-900: #0f172a;
+    --color-hm-950: #020617;
+
+    --color-sky-subtle: #f0f9ff;
+    --color-indigo-subtle: #eef2ff;
+    --color-emerald-subtle: #ecfdf5;
+    --color-amber-subtle: #fffbeb;
+    --color-rose-subtle: #fff1f2;
+
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
+    --radius-4xl: 2rem;
+    --radius-full: 9999px;
+
+    --shadow-hm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-hm-md: 0 4px 12px rgba(0,0,0,0.05);
+    --shadow-hm-lg: 0 8px 30px rgba(0,0,0,0.06);
+    --shadow-hm-xl: 0 20px 60px rgba(0,0,0,0.08);
+    --shadow-premium: 0 4px 20px rgba(37, 99, 235, 0.15);
+    --shadow-premium-dark: 0 8px 32px rgba(37, 99, 235, 0.25);
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.06);
+
+    --animate-scale-in: scale-in 0.2s ease-out;
+    --animate-slide-up: slide-up 0.25s ease-out;
+    --animate-fade-in: fade-in 0.2s ease-out;
+    --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+    --animate-float: float 3s ease-in-out infinite;
+
+    @keyframes scale-in {
+        from { transform: scale(0.95); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
+    }
+    @keyframes slide-up {
+        from { transform: translateY(8px); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+    @keyframes pulse-soft {
+        0%, 100% { opacity: 1; }
+        50%      { opacity: 0.5; }
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50%      { transform: translateY(-4px); }
+    }
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+.dark ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.3); }
+
+/* ── Glass utilities ── */
+.glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.dark .glass {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+}
+.dark .glass-card {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: none;
+}
+
+.glass-sidebar {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dark .glass-sidebar {
+    background: rgba(2, 6, 23, 0.85);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── Nav pill ── */
+.nav-pill {
+    position: relative;
+    transition: all 0.2s ease;
+}
+.nav-pill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.06), rgba(99, 102, 241, 0.06));
+}
+.nav-pill:hover::before { opacity: 1; }
+.nav-pill-active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.10), rgba(99, 102, 241, 0.10));
+}
+.dark .nav-pill-active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.07), rgba(99, 102, 241, 0.07));
+}
+
+/* ── KPI cards ── */
+.kpi-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 1.25rem;
+    color: white;
+    transition: all 0.3s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+}
+
+/* ── Timeline line ── */
+.timeline-line {
+    position: relative;
+}
+.timeline-line::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(148, 163, 184, 0.25), rgba(148, 163, 184, 0.02));
+    border-radius: 2px;
+}
+
+/* ── Transitions ── */
+.page-enter { animation: fade-in 0.2s ease-out, slide-up 0.25s ease-out; }
+
+/* ── Pill badge animation ── */
+.pill-badge {
+    transition: all 0.2s ease;
+}
+.pill-badge:hover {
+    transform: scale(1.04);
+}
