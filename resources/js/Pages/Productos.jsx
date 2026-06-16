@@ -21,12 +21,14 @@ export default function Productos({ productos, categorias }) {
         
         router.delete(`/productos/${id}`, {
             preserveScroll: true,
-            preserveState: false, // Fuerza a Inertia/React a actualizar la lista limpiando el registro borrado
+            preserveState: false, // Obliga a Inertia a traer la lista fresca del backend
             onSuccess: () => {
                 toast.success(`Producto "${nombre}" eliminado correctamente`);
             },
             onError: (errs) => {
-                toast.error(Object.values(errs).flat().join(', ') || 'Error al eliminar');
+                // Muestra el error enviado por el controlador (ej: Claves foráneas)
+                const errorMsg = Object.values(errs).flat().join(', ');
+                toast.error(errorMsg || 'Error al eliminar el producto');
             },
         })
     }
@@ -89,7 +91,6 @@ export default function Productos({ productos, categorias }) {
                                     <th className="text-center px-4 py-3 text-[9px] font-semibold text-hm-400 uppercase tracking-widest">Estado</th>
                                     <th className="text-right px-4 py-3 text-[9px] font-semibold text-hm-400 uppercase tracking-widest">Acción</th>
                                 </tr>
-                            </table>
                             </thead>
                             <tbody className="divide-y divide-gray-50 dark:divide-white/[0.02]">
                                 {data.length > 0 ? data.map((p) => (
@@ -137,13 +138,15 @@ export default function Productos({ productos, categorias }) {
                                         </td>
                                     </tr>
                                 )) : (
-                                    <tr><td colSpan="6" className="px-4 py-10 text-center">
-                                        <Package className="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                                        <p className="text-xs text-hm-400 dark:text-gray-500 mb-2">No se encontraron productos</p>
-                                        <Link href="/productos/crear" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white text-[10px] font-semibold">
-                                            <Plus className="w-3 h-3" /> Crear primer producto
-                                        </Link>
-                                    </td></tr>
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-10 text-center">
+                                            <Package className="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                                            <p className="text-xs text-hm-400 dark:text-gray-500 mb-2">No se encontraron productos</p>
+                                            <Link href="/productos/crear" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white text-[10px] font-semibold">
+                                                <Plus className="w-3 h-3" /> Crear primer producto
+                                            </Link>
+                                        </td>
+                                    </tr>
                                 )}
                             </tbody>
                         </table>
