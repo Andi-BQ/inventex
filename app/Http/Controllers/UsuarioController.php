@@ -6,7 +6,6 @@ use App\Http\Requests\UsuarioRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class UsuarioController extends Controller
@@ -32,8 +31,7 @@ class UsuarioController extends Controller
     public function inertiaStore(UsuarioRequest $request)
     {
         $data = $request->validated();
-        $data['password'] = Hash::make($data['password']);
-
+        // El cast 'hashed' del modelo User se encarga de aplicar Hash::make automáticamente
         $user = new User();
         $user->fill($data)->save();
 
@@ -63,9 +61,9 @@ class UsuarioController extends Controller
             }
         }
 
-        if (!empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        } else {
+        // Si no se envió password, lo removemos para no sobrescribir el hash existente.
+        // Si se envió, el cast 'hashed' del modelo se encarga de aplicar Hash::make.
+        if (empty($data['password'])) {
             unset($data['password']);
         }
 
@@ -141,8 +139,7 @@ class UsuarioController extends Controller
     public function store(UsuarioRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['password'] = Hash::make($data['password']);
-
+        // El cast 'hashed' del modelo se encarga de aplicar Hash::make automáticamente
         $user = User::create($data);
 
         return response()->json([
@@ -191,9 +188,9 @@ class UsuarioController extends Controller
             }
         }
 
-        if (!empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        } else {
+        // Si no se envió password, lo removemos para no sobrescribir el hash existente.
+        // Si se envió, el cast 'hashed' del modelo se encarga de hashearlo.
+        if (empty($data['password'])) {
             unset($data['password']);
         }
 

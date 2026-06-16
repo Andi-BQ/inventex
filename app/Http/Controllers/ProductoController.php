@@ -186,6 +186,17 @@ class ProductoController extends Controller
             if (!$producto) {
                 return redirect('/productos')->with('error', 'Producto no encontrado.');
             }
+
+            // Verificar si existen movimientos de inventario asociados antes de eliminar.
+            // Esto protege la trazabilidad contable y financiera del producto.
+            if ($producto->movimientos()->exists()) {
+                $total = $producto->movimientos()->count();
+                return redirect('/productos')->with(
+                    'error',
+                    "No se puede eliminar \"{$producto->nombre}\" porque tiene {$total} movimiento(s) de inventario registrado(s). Desactívelo en lugar de eliminarlo."
+                );
+            }
+
             $producto->delete();
             Cache::forget('categorias_activas');
             Cache::forget('proveedores_activos');

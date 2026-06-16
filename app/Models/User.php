@@ -19,6 +19,8 @@ class User extends Authenticatable
         'activo',
         'avatar_url',
         'ultimo_login',
+        'tema',
+        'preferencias_notificaciones',
     ];
 
     protected $hidden = [
@@ -32,6 +34,8 @@ class User extends Authenticatable
             'activo' => 'boolean',
             'ultimo_login' => 'datetime',
             'password' => 'hashed',
+            'tema' => 'string',
+            'preferencias_notificaciones' => 'array',
         ];
     }
 

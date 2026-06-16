@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Configuracion extends Model
+{
+    protected $fillable = [
+        'clave',
+        'valor',
+        'tipo',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'tipo' => 'string',
+        ];
+    }
+}

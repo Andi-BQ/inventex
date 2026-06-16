@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, usePage, useRemember, router } from '@inertiajs/react'
+import { Link, usePage, router } from '@inertiajs/react'
 import toast from 'react-hot-toast'
 import {
     LayoutDashboard, Package, Tags, Truck, ArrowLeftRight, Users,
@@ -30,16 +30,22 @@ export default function AuthenticatedLayout({ children }) {
     const notifRef = useRef(null)
     const userRef  = useRef(null)
 
-    const [darkMode, setDarkMode] = useRemember(
-        localStorage.getItem('theme') === 'dark',
-        'theme-preference'
-    )
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
 
     useEffect(() => {
         const root = document.documentElement
         root.classList.toggle('dark', darkMode)
         localStorage.setItem('theme', darkMode ? 'dark' : 'light')
     }, [darkMode])
+
+    useEffect(() => {
+        if (auth?.user?.tema) {
+            const shouldBeDark = auth.user.tema === 'dark'
+            setDarkMode(shouldBeDark)
+            document.documentElement.classList.toggle('dark', shouldBeDark)
+            localStorage.setItem('theme', auth.user.tema)
+        }
+    }, [auth?.user?.tema])
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success, { position: 'bottom-right' })
@@ -142,17 +148,25 @@ export default function AuthenticatedLayout({ children }) {
 
     return (
         <div className="h-screen flex bg-hm-50 dark:bg-hm-950 overflow-hidden">
-            {/* Mobile overlay */}
+
+            {/* ── OVERLAY MÓVIL ── */}
             {sidebarOpen && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
             )}
 
-            {/* ── SIDEBAR ── */}
+            {/* ── SIDEBAR: SIEMPRE fixed, NUNCA static ── */}
+            {/*
+                Solución al Bug 3.3 (Colapso del Layout):
+                - 'fixed' permanente evita el salto de posicionamiento entre static/fixed.
+                - En lg+ siempre visible (translate-x-0).
+                - En móvil se oculta con -translate-x-full y se muestra vía sidebarOpen.
+                - z-40 para que quede debajo del header sticky (z-30 queda debajo).
+            */}
             <aside className={`
-                fixed top-0 left-0 z-50 h-full w-60 p-4 glass-sidebar
+                fixed top-0 left-0 z-40 h-full w-60 p-4 glass-sidebar
                 flex flex-col
                 transform transition-all duration-300 ease-out
-                lg:translate-x-0 lg:static lg:z-auto
+                lg:translate-x-0
                 ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'}
             `}>
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -202,9 +216,14 @@ export default function AuthenticatedLayout({ children }) {
                 </div>
             </aside>
 
-            {/* ── MAIN AREA ── */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Header compacto */}
+            {/* ── MAIN AREA: margen izquierdo compensatorio en desktop ── */}
+            {/*
+                lg:ml-60 compensa el ancho del sidebar fixed (w-60 = 15rem = 240px).
+                En móvil (menor a lg) el margen es 0 porque el sidebar está oculto.
+                El header sticky funciona correctamente porque su contenedor padre
+                tiene overflow-y-auto y position relative.
+            */}
+            <div className="flex-1 flex flex-col min-w-0 lg:ml-60">
                 <header className="sticky top-0 z-30 glass border-b border-gray-100/60 dark:border-white/5 flex-shrink-0">
                     <div className="flex items-center justify-between px-5 h-14">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -319,7 +338,6 @@ export default function AuthenticatedLayout({ children }) {
                     </div>
                 </header>
 
-                {/* ── PAGE CONTENT — directo, sin wrapper flotante ── */}
                 <main className="flex-1 overflow-y-auto p-4 lg:p-5 page-enter">
                     {children}
                 </main>

@@ -8,7 +8,6 @@ use App\Models\Notificacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class AuthController extends Controller
@@ -130,17 +129,14 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return $request->expectsJson()
-                ? response()->json(['error' => 'La contraseña actual es incorrecta.'], 400)
-                : back()->withErrors(['error' => 'La contraseña actual es incorrecta.']);
+        if (!password_verify($request->current_password, $user->password)) {
+            return back()->withErrors(['error' => 'La contraseña actual es incorrecta.']);
         }
 
-        $user->update(['password' => Hash::make($request->new_password)]);
+        // El cast 'hashed' del modelo User se encarga de aplicar Hash::make automáticamente
+        $user->update(['password' => $request->new_password]);
 
-        return $request->expectsJson()
-            ? response()->json(['mensaje' => 'Contraseña actualizada correctamente.'])
-            : back()->with('success', 'Contraseña actualizada correctamente.');
+        return back()->with('success', 'Contraseña actualizada correctamente.');
     }
 
     private function sanitizeUser(User $user): array

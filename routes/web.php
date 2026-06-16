@@ -11,6 +11,7 @@ use App\Http\Controllers\MovimientoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\ConfiguracionController;
 
 // Guest routes
 Route::middleware('guest')->group(function () {
@@ -47,7 +48,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         'filters' => ['fecha_inicio' => request('fecha_inicio'), 'fecha_fin' => request('fecha_fin')],
     ]));
     Route::get('/reportes/exportar/{reporte}/{formato}', [ReporteController::class, 'exportar']);
-    Route::get('/configuracion', fn () => Inertia::render('Configuracion'));
+    Route::get('/configuracion', [ConfiguracionController::class, 'index']);
+    Route::post('/configuracion/general', [ConfiguracionController::class, 'updateGeneral'])->name('configuracion.general');
+    Route::post('/configuracion/perfil', [ConfiguracionController::class, 'updatePerfil'])->name('configuracion.perfil');
+    Route::put('/configuracion/password', [ConfiguracionController::class, 'updatePassword'])->name('configuracion.password');
+    Route::put('/configuracion/preferencias', [ConfiguracionController::class, 'updatePreferencias'])->name('configuracion.preferencias');
+    Route::put('/configuracion/tema', [ConfiguracionController::class, 'updateTema'])->name('configuracion.tema');
 
     Route::get('/perfil', [AuthController::class, 'perfil']);
     Route::put('/perfil/password', [AuthController::class, 'cambiarPassword']);

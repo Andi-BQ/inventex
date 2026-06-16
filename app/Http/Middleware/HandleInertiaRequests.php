@@ -28,6 +28,7 @@ class HandleInertiaRequests extends Middleware
                     'avatar_url' => $request->user()->avatar_url,
                     'activo' => $request->user()->activo,
                     'ultimo_login' => $request->user()->ultimo_login,
+                    'tema' => $request->user()->tema ?? 'light',
                 ] : null,
             ],
             'flash' => [
