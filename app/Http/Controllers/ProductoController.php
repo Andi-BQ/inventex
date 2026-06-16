@@ -186,23 +186,24 @@ class ProductoController extends Controller
         try {
             $producto = $this->productoService->getById($id);
             if (!$producto) {
-                return redirect('/productos')->with('error', 'Producto no encontrado.');
+                return redirect()->back()->withErrors(['error' => 'Producto no encontrado.']);
             }
 
+            // Si tiene movimientos, enviamos el mensaje usando withErrors para que React lo ataje en 'onError'
             if ($producto->movimientos()->exists()) {
                 $total = $producto->movimientos()->count();
-                return redirect('/productos')->with(
-                    'error',
-                    "No se puede eliminar \"{$producto->nombre}\" porque tiene {$total} movimiento(s) de inventario registrado(s). Desactívelo en lugar de eliminarlo."
-                );
+                return redirect()->back()->withErrors([
+                    'error' => "No se puede eliminar \"{$producto->nombre}\" porque tiene {$total} movimiento(s) de inventario registrado(s). Por seguridad, desactívelo en lugar de eliminarlo."
+                ]);
             }
 
             $producto->delete();
             Cache::forget('categorias_activas');
             Cache::forget('proveedores_activos');
+            
             return redirect('/productos')->with('success', 'Producto eliminado correctamente.');
         } catch (\Exception $e) {
-            return redirect('/productos')->with('error', 'Error al eliminar el producto: ' . $e->getMessage());
+            return redirect()->back()->withErrors(['error' => 'Error al eliminar el producto: ' . $e->getMessage()]);
         }
     }
 
