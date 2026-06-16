@@ -14,7 +14,8 @@ const sections = [
 ]
 
 export default function Configuracion() {
-    const { auth, configs, userPrefs } = usePage().props
+    // Agregamos fallbacks defensivos por si los props llegan como arrays vacíos o nulos de Laravel
+    const { auth = {}, configs = {}, userPrefs = {} } = usePage().props || {}
     const [activeSection, setActiveSection] = useState(null)
 
     return (
@@ -51,6 +52,7 @@ export default function Configuracion() {
 }
 
 function SectionPanel({ section, auth, configs, userPrefs, onBack }) {
+    if (!section) return null;
     switch (section.key) {
         case 'perfil': return <PerfilSection auth={auth} onBack={onBack} />
         case 'notificaciones': return <NotificacionesSection userPrefs={userPrefs} onBack={onBack} />
@@ -295,7 +297,10 @@ function PasswordSection({ onBack }) {
 }
 
 function NotificacionesSection({ userPrefs, onBack }) {
-    const defaults = userPrefs?.preferencias_notificaciones || {}
+    // Protección defensiva para que si 'preferencias_notificaciones' es nulo o un string corrupto, use un objeto limpio
+    const defaults = (userPrefs && typeof userPrefs.preferencias_notificaciones === 'object' && userPrefs.preferencias_notificaciones !== null) 
+        ? userPrefs.preferencias_notificaciones 
+        : {};
 
     const { data, setData, put, processing, recentlySuccessful } = useForm({
         stock_bajo: defaults.stock_bajo ?? true,
