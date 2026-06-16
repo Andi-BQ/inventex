@@ -1,2 +1,2 @@
-[providers.php]
-composerInstallArgs = ["--ignore-platform-req=ext-gd", "--optimize-autoloader", "--no-interaction", "--no-scripts"]
+[phases.install]
+cmds = ["composer install --ignore-platform-req=ext-gd --optimize-autoloader --no-interaction --no-scripts"]
