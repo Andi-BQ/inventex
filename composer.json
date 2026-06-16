@@ -76,7 +76,7 @@
             "dont-discover": []
         }
     },
-    "config": {
+   "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
@@ -84,8 +84,8 @@
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
         },
-        "platform": {
-            "ext-gd": "8.2"
+        "ignore-platform-reqs": {
+            "ext-gd": true
         }
     },
     "minimum-stability": "stable",
