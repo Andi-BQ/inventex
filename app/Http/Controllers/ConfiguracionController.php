@@ -13,6 +13,8 @@ class ConfiguracionController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        
+        // Obtenemos los valores mapeados de la tabla configuraciones
         $configs = Configuracion::pluck('valor', 'clave')->toArray();
 
         return Inertia::render('Configuracion', [
@@ -46,6 +48,7 @@ class ConfiguracionController extends Controller
             }
         }
 
+        // Limpieza estricta de la caché de configuraciones para producción
         cache()->forget('configuraciones_sistema');
 
         return back()->with('success', 'Configuración general actualizada correctamente.');
