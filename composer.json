@@ -88,7 +88,8 @@
             "ext-gd": true
         },
         "platform": {
-            "ext-gd": "8.2"
+            "ext-gd": "8.2",
+            "ext-zip": "8.2"
         }
     },
     "minimum-stability": "stable",
