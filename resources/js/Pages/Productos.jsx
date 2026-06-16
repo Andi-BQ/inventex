@@ -18,9 +18,16 @@ export default function Productos({ productos, categorias }) {
 
     const handleDelete = (id, nombre) => {
         if (!confirm(`¿Eliminar el producto "${nombre}" permanentemente?`)) return
+        
         router.delete(`/productos/${id}`, {
-            onSuccess: () => {},
-            onError: (errs) => toast.error(Object.values(errs).flat().join(', ') || 'Error al eliminar'),
+            preserveScroll: true,
+            preserveState: false, // Fuerza a Inertia/React a actualizar la lista limpiando el registro borrado
+            onSuccess: () => {
+                toast.success(`Producto "${nombre}" eliminado correctamente`);
+            },
+            onError: (errs) => {
+                toast.error(Object.values(errs).flat().join(', ') || 'Error al eliminar');
+            },
         })
     }
 
@@ -82,6 +89,7 @@ export default function Productos({ productos, categorias }) {
                                     <th className="text-center px-4 py-3 text-[9px] font-semibold text-hm-400 uppercase tracking-widest">Estado</th>
                                     <th className="text-right px-4 py-3 text-[9px] font-semibold text-hm-400 uppercase tracking-widest">Acción</th>
                                 </tr>
+                            </table>
                             </thead>
                             <tbody className="divide-y divide-gray-50 dark:divide-white/[0.02]">
                                 {data.length > 0 ? data.map((p) => (
