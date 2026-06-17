@@ -13,12 +13,25 @@ use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ChatbotController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+
+// 🚀 RUTA DE EMERGENCIA PARA INYECTAR LA BASE DE DATOS DESDE LA NUBE
+Route::get('/importar-base-de-datos-secreta', function () {
+    $path = base_path('inventex.sql');
+    
+    if (File::exists($path)) {
+        // Ejecuta el archivo SQL ignorando las restricciones externas
+        DB::unprepared(File::get($path));
+        return "¡Éxito total! La base de datos se ha actualizado en Railway con todos tus datos locales.";
+    }
+    
+    return "Error: No se encontró el archivo inventex.sql en la raíz de tu proyecto.";
+});
 
 // Guest routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'loginWeb']);
-});
 
 // Authenticated routes (Inertia pages + API)
 Route::middleware(['auth:sanctum'])->group(function () {
