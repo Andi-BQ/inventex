@@ -41,7 +41,7 @@ class ChatbotController extends Controller
                             ],
                             'filtro' => [
                                 'type' => 'string',
-                                'description' => 'Contexto específico opcional (ej. "mas_caro", "ultimos_diez", "por_proveedor", "resumen").',
+                                'description' => 'Contexto específico opcional (ej. "mas_caro", "stock_critico", "ultimos_diez", "por_proveedor", "resumen").',
                             ]
                         ],
                         'required' => ['modulo']
@@ -150,9 +150,18 @@ class ChatbotController extends Controller
                 if ($filtro === 'mas_caro') {
                     return Producto::orderBy('precio_venta', 'desc')->select('codigo', 'nombre', 'precio_venta', 'stock_actual')->first();
                 }
-                return Producto::whereRaw('stock_actual <= stock_minimo')
-                    ->select('codigo', 'nombre', 'stock_actual', 'stock_minimo', 'precio_venta')
+                if ($filtro === 'stock_critico') {
+                    return Producto::whereRaw('stock_actual <= stock_minimo')
+                        ->select('codigo', 'nombre', 'stock_actual', 'stock_minimo', 'precio_venta')
+                        ->get()->toArray();
+                }
+                $productos = Producto::select('codigo', 'nombre', 'stock_actual', DB::raw('COALESCE(stock_minimo, 0) as stock_minimo'), 'precio_venta')
+                    ->orderBy('nombre')
                     ->get()->toArray();
+                return [
+                    'total_productos' => count($productos),
+                    'productos' => $productos,
+                ];
 
             case 'categorias':
                 return DB::table('categorias')
@@ -175,7 +184,7 @@ class ChatbotController extends Controller
 
             case 'dashboard':
                 $valorInventario = Producto::sum(DB::raw('stock_actual * precio_compra')) ?? 0;
-                $ingresosHoy = Movimiento::where('tipo', 'salida')->where('created_at', '>=', Carbon::today())->sum(DB::raw('cantidad * precio_unitario')) ?? 0;
+                $ingresosHoy = Movimiento::where('tipo', 'salida')->where('created_at', '>=', Carbon::today())->sum(DB::raw('cantidad * precio')) ?? 0;
                 $totalProductos = Producto::count();
                 $totalProveedores = DB::table('proveedores')->count();
 
