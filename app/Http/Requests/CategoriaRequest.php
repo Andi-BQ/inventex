@@ -13,7 +13,7 @@ class CategoriaRequest extends FormRequest
 
     public function rules(): array
     {
-        $categoriaId = $this->route('categoria');
+        $categoriaId = $this->route('id');
 
         return [
             'nombre' => "required|string|max:100|unique:categorias,nombre,{$categoriaId}",

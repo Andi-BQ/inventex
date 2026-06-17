@@ -3,6 +3,7 @@
 **Fecha de Emisión:** Junio de 2026
 **Clasificación:** Confidencial / Auditoría Interna de Sistemas
 **Preparado para:** Dirección de Tecnología y Comité de Arquitectura de Software
+**Versión:** 2.0 — Ampliada con auditoría Inertia v3, módulos CRUD y plan de mitigación integral
 
 ---
 
@@ -10,7 +11,7 @@
 
 El presente informe documenta los resultados de la auditoría integral de software y arquitectura de datos practicada sobre el sistema INVENTEX — ERP de Gestión de Inventarios — durante el ciclo de revisión de Junio de 2026. La auditoría abarcó las tres capas del ecosistema: motor de persistencia (MySQL/Laravel Migrations), capa de dominio y servicio (Laravel 11, Eloquent ORM), y capa de presentación (Inertia.js v3 con React 19 y Tailwind CSS v4). Se examinaron la totalidad de las migraciones, modelos Eloquent, controladores, servicios, middleware de autorización, requests de validación, layouts frontend, páginas Inertia, y el enrutamiento SPA. El propósito central fue identificar desviaciones de diseño, vulnerabilidades de integridad referencial, cuellos de botella de rendimiento, bugs activos en producción, y brechas funcionales entre la interfaz expuesta y la lógica de backend realmente implementada.
 
-El sistema INVENTEX implementa un esquema híbrido de siete tablas transaccionales (users, categorias, proveedores, productos, movimientos_inventario, notificaciones, más las tablas del framework Laravel como sessions, cache, jobs y personal_access_tokens). Se identificaron cuatro bugs críticos en producción (formularios CRUD congelados, ruptura del flujo SPA por respuestas JSON planas, colapso del layout estructural con superposición del menú lateral, y falla de persistencia en credenciales de acceso por doble hashing de contraseñas), tres deficiencias estructurales en la capa de base de datos (falta de índices compuestos para consultas de reporting, ausencia de SoftDeletes en entidades transaccionales, uso de ENUM en lugar de tablas catálogo para tipos de movimiento), y un conjunto completo de opciones de configuración que existen exclusivamente como "fachada" en el frontend sin respaldo en la capa de persistencia. Las secciones siguientes desglosan cada hallazgo con su análisis de causa raíz, especificación técnica detallada y hoja de ruta de remediación priorizada.
+El sistema INVENTEX implementa un esquema híbrido de siete tablas transaccionales (users, categorias, proveedores, productos, movimientos_inventario, notificaciones, más las tablas del framework Laravel como sessions, cache, jobs y personal_access_tokens). Se identificaron cinco bugs críticos en producción (formularios CRUD congelados, ruptura del flujo SPA por respuestas JSON planas, colapso del layout estructural con superposición del menú lateral, falla de persistencia en credenciales de acceso por doble hashing de contraseñas, y **flash messages invisibles en Inertia v3**), tres deficiencias estructurales en la capa de base de datos (falta de índices compuestos para consultas de reporting, ausencia de SoftDeletes en entidades transaccionales, uso de ENUM en lugar de tablas catálogo para tipos de movimiento), y un conjunto completo de opciones de configuración que existen exclusivamente como "fachada" en el frontend sin respaldo en la capa de persistencia. La auditoría reveló además un bug transversal crítico: **los mensajes flash (success/error) retornados mediante `redirect()->with()` en 17 controladores no se muestran al usuario** debido al cambio de comportamiento de `preserveState: true` por defecto en Inertia v3. Las secciones siguientes desglosan cada hallazgo con su análisis de causa raíz, especificación técnica detallada y hoja de ruta de remediación priorizada.
 
 ---
 
@@ -281,6 +282,99 @@ Se recomienda la Opción A porque reduce la superficie de error y sigue el princ
 
 ---
 
+### Bug 3.5: Flash Messages Invisibles en Inertia v3 (Bug Transversal Crítico)
+
+**A) Síntoma en la Interfaz:**
+El usuario realiza una operación de creación, actualización o eliminación (POST/PUT/DELETE) desde cualquier módulo. El servidor procesa la operación correctamente y redirige a la página de listado con un mensaje flash (success o error). Sin embargo, el mensaje nunca aparece en la interfaz. El usuario no recibe confirmación visual de que la operación se completó, lo que genera incertidumbre y posibles acciones duplicadas (clics repetidos en "Eliminar" o "Guardar").
+
+**B) Causa Raíz Técnica:**
+El sistema INVENTEX se desarrolló originalmente con Inertia.js v1/v2, donde el comportamiento por defecto de `preserveState` era `false` para todos los métodos HTTP. En Inertia.js v3, el framework cambió el valor por defecto a `preserveState: true` para métodos no-GET (POST/PUT/PATCH/DELETE). Este cambio en el core de Inertia rompió el mecanismo de feedback en todo el sistema.
+
+El flujo del bug es el siguiente:
+
+1. El frontend ejecuta `router.delete('/productos/1', options)` con `preserveState: true` (default en v3).
+2. El controlador en Laravel procesa y retorna `redirect('/productos')->with('success', 'Producto eliminado correctamente.')`.
+3. El servidor responde con HTTP 302 y cabecera `X-Inertia: true`. El cuerpo JSON contiene la página destino (`/productos`) con los props actualizados, incluyendo `flash.success`.
+4. Inertia v3 recibe la respuesta 302, sigue la redirección y obtiene la página `/productos` con los nuevos props.
+5. **Pero** `preserveState: true` le indica a Inertia que NO debe re-renderizar el componente React con los nuevos props.
+6. El `useEffect` en `AuthenticatedLayout.jsx` que observa `[flash]` nunca se ejecuta porque el objeto `flash` nunca cambia en el estado del componente.
+7. `toast.success(flash.success)` nunca se llama.
+8. El mensaje desaparece silenciosamente.
+
+El bug afecta a 19 puntos en 7 controladores y 4 páginas frontend:
+
+**Controladores afectados (backend):**
+| Controlador | Métodos | Operaciones |
+|---|---|---|
+| `CategoriaController` | inertiaStore, inertiaUpdate, inertiaDestroy, paginaEditar | POST, PUT, DELETE |
+| `ProveedorController` | inertiaStore, inertiaUpdate, inertiaDestroy, paginaEditar | POST, PUT, DELETE |
+| `ProductoController` | inertiaStore, inertiaUpdate, inertiaDestroy, paginaEditar | POST, PUT, DELETE |
+| `MovimientoController` | inertiaStore | POST |
+| `UsuarioController` | inertiaStore, inertiaUpdate, inertiaDestroy, paginaEditar | POST, PUT, DELETE |
+| `ConfiguracionController` | updateGeneral, updatePerfil, updatePassword, updatePreferencias, updateTema | POST, PUT |
+| `AuthController` | cambiarPassword | PUT |
+
+**Páginas frontend sin `toast.success` en `onSuccess`:**
+| Página | Método | Problema |
+|---|---|---|
+| `Productos.jsx` | handleDelete | `onSuccess: () => {}` vacío |
+| `Categorias.jsx` | handleDelete | `onSuccess: () => {}` vacío |
+| `Proveedores.jsx` | handleDelete | `onSuccess: () => { setOpenDropdown(null) }` sin toast |
+| `Usuarios.jsx` | handleDelete | `onSuccess: () => { setOpenDropdown(null) }` sin toast |
+
+**C) Árbol de Decisión para Errores (Backend):**
+Actualmente existen tres patrones para reportar errores al frontend, pero solo dos funcionan en Inertia v3:
+
+| Patrón | Funciona en v3? | Comportamiento |
+|---|---|---|
+| `redirect('/ruta')->with('error', $msg)` | **NO** | 302 con flash — no visible por preserveState |
+| `throw ValidationException::withMessages(['error' => $msg])` | **SÍ** | Retorna 422, dispara `onError` con objeto de errores |
+| `back()->withErrors(['error' => $msg])` | **SÍ** | Retorna 422, dispara `onError` con objeto de errores |
+
+La mayoría de controladores usa el patrón #1 que no funciona. Solo `ProductoController@inertiaDestroy` fue parcheado para usar el patrón #2 (ValidationException) en el caso de eliminación bloqueada.
+
+**D) Solución de Ingeniería (Patrón Recomendado):**
+
+Para todas las operaciones POST/PUT/DELETE en Inertia v3, se debe implementar el siguiente patrón unificado:
+
+**Backend (Controlador):**
+```php
+// Para éxito — el frontend capturará el flash con preserveState:false
+return redirect('/ruta')->with('success', 'Mensaje de éxito.');
+
+// Para error — lanzar ValidationException para disparar onError
+throw ValidationException::withMessages([
+    'error' => 'Mensaje de error descriptivo.'
+]);
+```
+
+**Frontend (Página listado):**
+```jsx
+router.delete(`/ruta/${id}`, {
+    preserveState: false,    // ← Obligatorio: fuerza re-render con nuevos props
+    preserveScroll: true,    // ← Mantiene posición de scroll
+    onSuccess: () => {
+        toast.success('Mensaje de éxito');  // ← Toast local del frontend
+    },
+    onError: (err) => {
+        toast.error(
+            Object.values(err).flat().join(', ') || 'Error al procesar'
+        );
+    },
+})
+```
+
+**E) Excepción Confirmada:**
+Los formularios de creación/edición (`Productos/Crear.jsx`, `Categorias/Crear.jsx`, `Proveedores/Crear.jsx`, `Usuarios/Crear.jsx`, `Movimientos/Crear.jsx`, `Configuracion.jsx`, `Perfil.jsx`) NO dependen de flash messages porque usan `toast.success()` directamente en su callback `onSuccess`. Estos componentes **no están afectados** por este bug.
+
+**F) Solución Parcial Implementada:**
+Durante la auditoría se corrigió parcialmente el módulo Productos:
+- `ProductoController@inertiaDestroy`: ahora lanza `ValidationException` en lugar de `redirect()->with('error')` cuando un producto tiene movimientos.
+- `Productos.jsx`: se agregó `preserveState: false, preserveScroll: true` en `router.delete()`.
+- Pendiente: agregar `toast.success()` en `onSuccess` de `Productos.jsx`.
+
+---
+
 ## 4. AUDITORÍA DE RENDIMIENTO (PERFORMANCE & BOTTLENECKS)
 
 ### 4.1 Consultas N+1 Identificadas
@@ -503,9 +597,13 @@ Sin embargo, la exportación PDF usa `limit(2000)` que podría fallar con datase
 | Orden | ID | Acción | Responsable |
 |---|---|---|---|
 | 1 | C-01 | Eliminar `Hash::make()` de controladores y confiar en cast `hashed` del modelo User | Backend |
-| 2 | C-04 | Cambiar `cascadeOnDelete()` a `restrictOnDelete()` en `movimientos_inventario.producto_id`. Agregar verificación en `ProductoController::inertiaDestroy` | Backend |
-| 3 | C-03 | Modificar `AuthController::cambiarPassword` para retornar respuestas Inertia cuando `X-Inertia` esté presente | Backend |
-| 4 | C-05 | Reestructurar layout: sidebar fixed permanente con `lg:ml-60` en main | Frontend |
+| 2 | C-13 | Reemplazar `redirect()->with('error')` por `throw ValidationException` en todos los controladores Inertia | Backend |
+| 3 | C-14 | Agregar `preserveState: false, preserveScroll: true` en todos los `router.delete()` y `router.put()` | Frontend |
+| 4 | C-15 | Agregar `toast.success()` en `onSuccess` de todos los `handleDelete` | Frontend |
+| 5 | C-04 | Cambiar `cascadeOnDelete()` a `restrictOnDelete()`. Verificar en `ProductoController::inertiaDestroy` | Backend |
+| 6 | C-16 | Agregar verificación FK antes de eliminar proveedor con productos | Backend |
+| 7 | C-03 | Modificar `AuthController::cambiarPassword` para retornar respuestas Inertia | Backend |
+| 8 | C-05 | Reestructurar layout: sidebar fixed permanente con `lg:ml-60` en main | Frontend |
 
 **Fase 2B — Consolidación Estructural (Semana 2-3)**
 | Orden | ID | Acción | Responsable |
@@ -573,7 +671,142 @@ No se encontraron archivos de test en el código base. Se recomienda implementar
 
 ### 6.4 Conclusión
 
-El sistema INVENTEX presenta una base arquitectónica sólida con buenas prácticas en Eloquent ORM (uso mayoritario de Eager Loading, tipos de datos correctos para campos financieros, índice compuesto en tablas de alta carga). Los bugs críticos identificados (C-01, C-02, C-03, C-04) son corregibles en un sprint de 3-5 días hábiles. Las brechas funcionales en Configuración y la ausencia de SoftDeletes representan deuda técnica que debe abordarse en la Fase 2B/2C para garantizar la madurez del sistema como ERP corporativo. La hoja de ruta propuesta prioriza la corrección de bugs de seguridad y funcionalidad crítica antes de abordar mejoras de arquitectura y nuevas funcionalidades.
+El sistema INVENTEX presenta una base arquitectónica sólida con buenas prácticas en Eloquent ORM (uso mayoritario de Eager Loading, tipos de datos correctos para campos financieros, índice compuesto en tablas de alta carga). Los bugs críticos identificados (C-01 a C-05, C-13 a C-18) son corregibles en un sprint de 5-7 días hábiles. Las brechas funcionales en Configuración y la ausencia de SoftDeletes representan deuda técnica que debe abordarse en la Fase 2B/2C para garantizar la madurez del sistema como ERP corporativo. La hoja de ruta propuesta prioriza la corrección de bugs de seguridad y funcionalidad crítica antes de abordar mejoras de arquitectura y nuevas funcionalidades.
+
+---
+
+## 7. AUDITORÍA POR MÓDULO — PLAN DE ACCIÓN DETALLADO
+
+### 7.1 Módulo: Productos
+
+#### Archivos: `ProductoController.php`, `Productos.jsx`, `Productos/Crear.jsx`, `ProductoRequest.php`, `ProductoService.php`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `ProductoController.php` | 68 | `inertiaStore`: `redirect()->with('success')` nunca visible por `preserveState:true` en POST | Flash Message Bug | P0 |
+| `ProductoController.php` | 78-80 | `inertiaUpdate`: `redirect()->with('error')` cuando producto no existe — nunca visible | Flash Message Bug | P1 |
+| `ProductoController.php` | 203 | `inertiaDestroy`: success flash no se muestra (`onSuccess` vacío en frontend) | Flash Message Bug | P1 |
+| `ProductoController.php` | 88-90 | `paginaEditar`: `redirect()->with('error')` si no existe — nunca visible | Flash Message Bug | P2 |
+| `Productos.jsx` | 24 | `handleDelete`: `onSuccess: () => {}` vacío — necesita `toast.success()` | Missing Toast | P1 |
+| `Productos.jsx` | 22-28 | `handleDelete`: Tiene `preserveState:false` (correcto) y `onError` con toast (correcto) | — | OK ✓ |
+
+**Estado:** Parcialmente corregido. Falta `toast.success` en `onSuccess` de eliminación.
+
+### 7.2 Módulo: Categorías
+
+#### Archivos: `CategoriaController.php`, `Categorias.jsx`, `Categorias/Crear.jsx`, `CategoriaRequest.php`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `CategoriaController.php` | 35 | `inertiaStore`: `redirect()->with('success')` nunca visible | Flash Message Bug | P0 |
+| `CategoriaController.php` | 41-46 | `inertiaUpdate`: ambos flash (success/error) nunca visibles | Flash Message Bug | P0 |
+| `CategoriaController.php` | 49-63 | `inertiaDestroy`: ambos flash nunca visibles | Flash Message Bug | P0 |
+| `CategoriaController.php` | 54-56 | `inertiaDestroy`: usa `redirect()->with('error')` — debe lanzar `ValidationException` | Error Pattern | P1 |
+| `CategoriaController.php` | 67-69 | `paginaEditar`: `redirect()->with('error')` nunca visible | Flash Message Bug | P1 |
+| `Categorias.jsx` | 16-19 | `handleDelete`: `onSuccess: () => {}` vacío, sin `preserveState:false` | Missing Config + Toast | P0 |
+| `Categorias.jsx` | 18 | `handleDelete` `onError`: `err?.response?.data?.error` no es compatible con Inertia v3 (los errores llegan como objeto plano, no response anidado) | Error Pattern | P1 |
+
+**Estado:** Sin corregir. Todos los flash messages de categorías son invisibles.
+
+### 7.3 Módulo: Proveedores
+
+#### Archivos: `ProveedorController.php`, `Proveedores.jsx`, `Proveedores/Crear.jsx`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `ProveedorController.php` | 44 | `inertiaStore`: flash success nunca visible | Flash Message Bug | P0 |
+| `ProveedorController.php` | 50,64 | `inertiaUpdate`: flash success/error nunca visibles | Flash Message Bug | P0 |
+| `ProveedorController.php` | 67-76 | `inertiaDestroy`: flash success/error nunca visibles | Flash Message Bug | P0 |
+| `ProveedorController.php` | 67-76 | `inertiaDestroy`: **NO verifica** si el proveedor tiene productos asociados. Si se elimina un proveedor con productos, MySQL lanza error FK 1451 (`restrictOnDelete`) | FK Protection Missing | P1 |
+| `ProveedorController.php` | 30-45, 47-65 | Sin `FormRequest`. Validaciones inline duplicadas en inertiaStore, inertiaUpdate, store, update | Code Quality | P2 |
+| `ProveedorController.php` | 80-82 | `paginaEditar`: flash error nunca visible | Flash Message Bug | P1 |
+| `Proveedores.jsx` | 17-19 | `handleDelete`: `onSuccess` sin toast, sin `preserveState:false` | Missing Config + Toast | P0 |
+| `Proveedores.jsx` | 19 | `onError`: Mensaje genérico "Error al eliminar" sin detalles | Error Pattern | P2 |
+
+**Estado:** Sin corregir. Además del bug de flash, tiene riesgo de error SQL en eliminación.
+
+### 7.4 Módulo: Movimientos
+
+#### Archivos: `MovimientoController.php`, `Movimientos.jsx`, `Movimientos/Crear.jsx`, `MovimientoRequest.php`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `MovimientoController.php` | 95 | `inertiaStore` éxito: `redirect('/movimientos')->with('success')` nunca visible | Flash Message Bug | P0 |
+| `MovimientoController.php` | 96-98 | `inertiaStore` error: `redirect('/movimientos/crear')->with('error')` nunca visible | Flash Message Bug | P1 |
+| `MovimientoController.php` | 46-98 | `inertiaStore`: usa excepción Symfony HttpException internamente pero la convierte a `redirect()->with('error')`. Debe lanzar `ValidationException` directamente | Error Pattern | P1 |
+
+**Estado:** Sin corregir. El listado de movimientos es solo lectura (no hay delete/edit), por lo que el impacto es menor, pero la creación no muestra feedback.
+
+### 7.5 Módulo: Usuarios
+
+#### Archivos: `UsuarioController.php`, `Usuarios.jsx`, `Usuarios/Crear.jsx`, `UsuarioRequest.php`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `UsuarioController.php` | 38 | `inertiaStore`: flash success nunca visible | Flash Message Bug | P0 |
+| `UsuarioController.php` | 44,50-54,60,72 | `inertiaUpdate`: múltiples `redirect()->with('error')` nunca visibles | Flash Message Bug | P0 |
+| `UsuarioController.php` | 75-97 | `inertiaDestroy`: flash success/error nunca visibles (pese a tener lógica de negocio correcta: no autoeliminarse, no último admin, check movimientos) | Flash Message Bug | P0 |
+| `UsuarioController.php` | 101-103 | `paginaEditar`: flash error nunca visible | Flash Message Bug | P1 |
+| `Usuarios.jsx` | 15-19 | `handleToggleActivo`: `router.put()` sin `preserveState:false` | Missing Config | P2 |
+| `Usuarios.jsx` | 22-28 | `handleDelete`: `onSuccess` sin toast, sin `preserveState:false` | Missing Config + Toast | P1 |
+| `Usuarios.jsx` | 25 | `handleDelete` `onError`: usa `Object.values(errs).flat().join(', ')` — correcto para Inertia v3 | — | OK ✓ |
+
+**Estado:** Sin corregir. La lógica de negocio es correcta y robusta, pero el feedback al usuario no funciona.
+
+### 7.6 Módulo: Configuración
+
+#### Archivos: `ConfiguracionController.php`, `Configuracion.jsx`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `ConfiguracionController.php` | Todos los métodos | `back()->with('success')` es redundante porque el frontend ya muestra `toast.success()` directamente en `onSuccess` | Redundancia | P3 |
+| `Configuracion.jsx` | — | No depende de flash messages. Usa `toast.success()` en `onSuccess`. | — | OK ✓ |
+
+**Estado:** Funcional. Los `->with('success')` en el controlador son redundantes pero no causan errores.
+
+### 7.7 Módulo: Autenticación
+
+#### Archivos: `AuthController.php`, `Login.jsx`, `Perfil.jsx`
+
+| Archivo | Línea | Problema | Tipo | Prioridad |
+|---|---|---|---|---|
+| `AuthController.php` | 139 | `cambiarPassword`: `back()->with('success', ...)` nunca visible (frontend ya tiene `toast.success` en `onSuccess` — redundante) | Redundancia | P3 |
+| `AuthController.php` | 133 | `cambiarPassword`: `back()->withErrors(['error' => ...])` SÍ funciona (422 + onError) | — | OK ✓ |
+| `Perfil.jsx` | — | Usa `toast.success()` en `onSuccess` + lee `errors` de `usePage()` — correcto | — | OK ✓ |
+| `Login.jsx` | — | Usa `back()->withErrors()` del controlador + muestra errores del formulario — correcto | — | OK ✓ |
+
+**Estado:** Funcional. Bugs de doble hashing (C-01) corregidos previamente.
+
+---
+
+## 8. MATRIZ DE RIESGOS AMPLIADA
+
+### 8.1 Nuevos Hallazgos (Auditoría Inertia v3 + Módulos CRUD)
+
+| ID | Hallazgo | Criticidad | Impacto | Esfuerzo | Módulo |
+|---|---|---|---|---|---|
+| C-13 | Flash messages invisibles en 7 controladores (19 métodos) | **Crítica** | Alto — Usuario sin feedback post-operación | 6-8 horas | Todos los módulos |
+| C-14 | Falta `preserveState:false` en 3 páginas listado (Categorías, Proveedores, Usuarios) | **Alta** | Alto — flash nunca visible | 2 horas | Categorías, Proveedores, Usuarios |
+| C-15 | Falta `toast.success` en `onSuccess` de 4 páginas listado | **Alta** | Medio — Sin confirmación visual de éxito | 2 horas | Productos, Categorías, Proveedores, Usuarios |
+| C-16 | `ProveedorController@inertiaDestroy` sin verificar productos asociados (riesgo FK) | **Alta** | Alto — Error SQL 500 al eliminar proveedor con productos | 1 hora | Proveedores |
+| C-17 | ProveedorController sin FormRequest (validaciones inline duplicadas) | **Media** | Bajo — Código duplicado, difícil de mantener | 3 horas | Proveedores |
+| C-18 | `Categorias.jsx`: `onError` usa `err?.response?.data?.error` (incompatible con Inertia v3) | **Media** | Medio — Error silencioso si falla eliminación | 1 hora | Categorías |
+
+### 8.2 Plan de Acción por Prioridad
+
+**Fase 1 — Corrección Inmediata (Días 1-2):**
+| Orden | ID | Acción Detallada | Archivos a Modificar |
+|---|---|---|---|
+| 1 | C-13 | Reemplazar `redirect()->with('error')` por `throw ValidationException::withMessages([...])` en todos los controladores Inertia para casos de error/bloqueo | CategoriaController, ProveedorController, UsuarioController, MovimientoController, ProductoController |
+| 2 | C-14 | Agregar `preserveState: false, preserveScroll: true` en todos los `router.delete()` y `router.put()` de páginas listado | Categorias.jsx, Proveedores.jsx, Usuarios.jsx |
+| 3 | C-15 | Agregar `onSuccess: () => toast.success('...')` en todos los `handleDelete` | Productos.jsx, Categorias.jsx, Proveedores.jsx, Usuarios.jsx |
+
+**Fase 2 — Consolidación (Día 3):**
+| Orden | ID | Acción Detallada | Archivos a Modificar |
+|---|---|---|---|
+| 4 | C-16 | Agregar verificación `if ($proveedor->productos()->count() > 0) throw ValidationException(...)` antes de eliminar | ProveedorController |
+| 5 | C-18 | Reemplazar `err?.response?.data?.error` por `Object.values(err).flat().join(', ')` en Categorias.jsx | Categorias.jsx |
+| 6 | C-17 | Crear `ProveedorRequest` con reglas completas (incluyendo ruc, sitio_web, teléfono) y usarlo en inertiaStore, inertiaUpdate, store, update | ProveedorRequest.php (nuevo), ProveedorController.php |
 
 ---
 

@@ -299,7 +299,7 @@ export default function Dashboard({ stats, actividadReciente, alertasStock, vent
                                     {actividadReciente.slice(0, 5).map((mov) => (
                                         <tr key={mov.id} className="border-b border-gray-50 dark:border-white/[0.03] last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
                                             <td className="py-2.5 pr-3">
-                                                <span className="font-medium text-gray-800 dark:text-gray-200">{mov.producto_nombre || 'Producto #' + mov.producto_id}</span>
+                                                <span className="font-medium text-gray-800 dark:text-gray-200">{mov.producto?.nombre || 'Producto #' + mov.producto_id}</span>
                                             </td>
                                             <td className="py-2.5 pr-3">
                                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-medium ${
@@ -314,7 +314,7 @@ export default function Dashboard({ stats, actividadReciente, alertasStock, vent
                                             <td className="py-2.5 pr-3 text-right text-gray-400 dark:text-gray-500">
                                                 <span className="inline-flex items-center gap-1">
                                                     <User className="w-2.5 h-2.5" />
-                                                    {mov.usuario_nombre || 'Sistema'}
+                                                    {mov.usuario?.nombre_completo || 'Sistema'}
                                                 </span>
                                             </td>
                                             <td className="py-2.5 text-right text-gray-400 dark:text-gray-500 whitespace-nowrap">

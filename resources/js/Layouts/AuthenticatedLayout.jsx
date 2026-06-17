@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, usePage, router } from '@inertiajs/react'
 import toast from 'react-hot-toast'
+import ChatbotWidget from '@/Components/ChatbotWidget'
 import {
     LayoutDashboard, Package, Tags, Truck, ArrowLeftRight, Users,
     BarChart3, UserCircle, LogOut, Bell, Search, Menu, X,
@@ -147,6 +148,7 @@ export default function AuthenticatedLayout({ children }) {
     const userRol    = user?.rol || ''
 
     return (
+        <>
         <div className="h-screen flex bg-hm-50 dark:bg-hm-950 overflow-hidden">
 
             {/* ── OVERLAY MÓVIL ── */}
@@ -343,5 +345,7 @@ export default function AuthenticatedLayout({ children }) {
                 </main>
             </div>
         </div>
+        <ChatbotWidget />
+        </>
     )
 }

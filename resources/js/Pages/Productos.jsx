@@ -18,17 +18,12 @@ export default function Productos({ productos, categorias }) {
 
     const handleDelete = (id, nombre) => {
         if (!confirm(`¿Eliminar el producto "${nombre}" permanentemente?`)) return
-        
         router.delete(`/productos/${id}`, {
+            preserveState: false,
             preserveScroll: true,
-            preserveState: false, // Obliga a Inertia a traer la lista fresca del backend
-            onSuccess: () => {
-                toast.success(`Producto "${nombre}" eliminado correctamente`);
-            },
-            onError: (errs) => {
-                // Muestra el error enviado por el controlador (ej: Claves foráneas)
-                const errorMsg = Object.values(errs).flat().join(', ');
-                toast.error(errorMsg || 'Error al eliminar el producto');
+            onSuccess: () => toast.success('Producto eliminado correctamente.'),
+            onError: (err) => {
+                toast.error(Object.values(err).flat().join(', ') || 'Error al eliminar')
             },
         })
     }

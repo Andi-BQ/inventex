@@ -13,7 +13,7 @@ class UsuarioRequest extends FormRequest
 
     public function rules(): array
     {
-        $usuarioId = $this->route('usuario');
+        $usuarioId = $this->route('id');
 
         $rules = [
             'nombre_completo' => 'required|string|max:150',

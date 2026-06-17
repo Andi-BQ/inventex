@@ -12,6 +12,7 @@ use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\ChatbotController;
 
 // Guest routes
 Route::middleware('guest')->group(function () {
@@ -78,6 +79,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/usuarios', [UsuarioController::class, 'inertiaStore'])->middleware('role:administrador');
     Route::put('/usuarios/{id}', [UsuarioController::class, 'inertiaUpdate'])->middleware('role:administrador');
     Route::delete('/usuarios/{id}', [UsuarioController::class, 'inertiaDestroy'])->middleware('role:administrador');
+
+    Route::post('/chatbot/consultar', [ChatbotController::class, 'consultar']);
 
     // API - JSON endpoints (backward compat)
     Route::prefix('api')->group(function () {

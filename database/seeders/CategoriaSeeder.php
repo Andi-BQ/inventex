@@ -10,12 +10,12 @@ class CategoriaSeeder extends Seeder
     public function run(): void
     {
         DB::table('categorias')->insert([
-            ['nombre' => 'Alimentos', 'descripcion' => 'Productos de alimentación y consumo masivo', 'icono' => 'Apple', 'color' => '#22c55e', 'created_at' => now(), 'updated_at' => now()],
-            ['nombre' => 'Bebidas', 'descripcion' => 'Bebidas gaseosas, jugos y agua embotellada', 'icono' => 'CupSoda', 'color' => '#06b6d4', 'created_at' => now(), 'updated_at' => now()],
-            ['nombre' => 'Limpieza', 'descripcion' => 'Productos de limpieza e higiene del hogar', 'icono' => 'Sparkles', 'color' => '#8b5cf6', 'created_at' => now(), 'updated_at' => now()],
-            ['nombre' => 'Electrónica', 'descripcion' => 'Dispositivos electrónicos y accesorios', 'icono' => 'Laptop', 'color' => '#2563eb', 'created_at' => now(), 'updated_at' => now()],
-            ['nombre' => 'Papelería', 'descripcion' => 'Útiles de escritorio, libretas y material de oficina', 'icono' => 'Pencil', 'color' => '#f59e0b', 'created_at' => now(), 'updated_at' => now()],
-            ['nombre' => 'Herramientas', 'descripcion' => 'Herramientas manuales y eléctricas', 'icono' => 'Wrench', 'color' => '#ef4444', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Lácteos y Huevos', 'descripcion' => 'Productos lácteos, huevos y derivados refrigerados', 'icono' => 'Milk', 'color' => '#f472b6', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Snacks y Golosinas', 'descripcion' => 'Botanas, dulces, chocolates y frutos secos', 'icono' => 'Candy', 'color' => '#eab308', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Cuidado Personal', 'descripcion' => 'Higiene personal, cosméticos y cuidado de la piel', 'icono' => 'Sparkles', 'color' => '#a855f7', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Mascotas', 'descripcion' => 'Alimento y accesorios para perros y gatos', 'icono' => 'Cat', 'color' => '#f97316', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Cocina y Hogar', 'descripcion' => 'Utensilios de cocina, organización y limpieza del hogar', 'icono' => 'Home', 'color' => '#06b6d4', 'created_at' => now(), 'updated_at' => now()],
+            ['nombre' => 'Ferretería', 'descripcion' => 'Herramientas eléctricas, manuales y accesorios', 'icono' => 'Hammer', 'color' => '#dc2626', 'created_at' => now(), 'updated_at' => now()],
         ]);
     }
 }

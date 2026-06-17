@@ -9,6 +9,7 @@ use App\Services\ProductoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ProductoController extends Controller
@@ -185,25 +186,32 @@ class ProductoController extends Controller
     {
         try {
             $producto = $this->productoService->getById($id);
+
             if (!$producto) {
-                return redirect()->back()->withErrors(['error' => 'Producto no encontrado.']);
+                throw ValidationException::withMessages([
+                    'error' => 'Producto no encontrado.'
+                ]);
             }
 
-            // Si tiene movimientos, enviamos el mensaje usando withErrors para que React lo ataje en 'onError'
             if ($producto->movimientos()->exists()) {
                 $total = $producto->movimientos()->count();
-                return redirect()->back()->withErrors([
+                throw ValidationException::withMessages([
                     'error' => "No se puede eliminar \"{$producto->nombre}\" porque tiene {$total} movimiento(s) de inventario registrado(s). Por seguridad, desactívelo en lugar de eliminarlo."
                 ]);
             }
 
             $producto->delete();
+
             Cache::forget('categorias_activas');
             Cache::forget('proveedores_activos');
-            
+
             return redirect('/productos')->with('success', 'Producto eliminado correctamente.');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['error' => 'Error al eliminar el producto: ' . $e->getMessage()]);
+            throw ValidationException::withMessages([
+                'error' => 'Error inesperado al eliminar el producto: ' . $e->getMessage()
+            ]);
         }
     }
 
