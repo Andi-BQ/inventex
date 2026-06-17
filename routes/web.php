@@ -16,22 +16,21 @@ use App\Http\Controllers\ChatbotController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-// 🚀 RUTA DE EMERGENCIA PARA INYECTAR LA BASE DE DATOS DESDE LA NUBE
+// 🚀 RUTA DE EMERGENCIA (FUERA DE LOS MIDDLEWARES)
 Route::get('/importar-base-de-datos-secreta', function () {
     $path = base_path('inventex.sql');
-    
     if (File::exists($path)) {
-        // Ejecuta el archivo SQL ignorando las restricciones externas
         DB::unprepared(File::get($path));
         return "¡Éxito total! La base de datos se ha actualizado en Railway con todos tus datos locales.";
     }
-    
-    return "Error: No se encontró el archivo inventex.sql en la raíz de tu proyecto.";
+    return "Error: No se encontró el archivo inventex.sql en la raíz del proyecto.";
 });
 
 // Guest routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
+    Route::post('/login', [AuthController::class, 'loginWeb']);
+});
 
 // Authenticated routes (Inertia pages + API)
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -79,10 +78,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/productos/{id}', [ProductoController::class, 'inertiaUpdate']);
     Route::delete('/productos/{id}', [ProductoController::class, 'inertiaDestroy']);
 
+    // Categorias
     Route::post('/categorias', [CategoriaController::class, 'inertiaStore']);
     Route::put('/categorias/{id}', [CategoriaController::class, 'inertiaUpdate']);
     Route::delete('/categorias/{id}', [CategoriaController::class, 'inertiaDestroy']);
 
+    // Proveedores
     Route::post('/proveedores', [ProveedorController::class, 'inertiaStore']);
     Route::put('/proveedores/{id}', [ProveedorController::class, 'inertiaUpdate']);
     Route::delete('/proveedores/{id}', [ProveedorController::class, 'inertiaDestroy']);
